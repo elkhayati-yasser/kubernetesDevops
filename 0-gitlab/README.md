@@ -29,6 +29,7 @@ This folder sets up a self-hosted GitLab instance with:
   -out gitlab.yasserelkhayati.com.cert
   ```
 
+/0-gitlab/1.PNG
 
 ## 📜 2. GitLab Server and Runner
 
