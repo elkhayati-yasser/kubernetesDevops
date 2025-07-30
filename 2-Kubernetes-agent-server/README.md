@@ -8,7 +8,7 @@
 ## 1. SSL Certificate Setup
 
 ### Copy Certificates to Nodes
-```bash
+
 # Copy to control plane
 scp /path/to/ssl/files user@controlplane:/root/ssl/
 
