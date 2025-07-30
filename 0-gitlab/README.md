@@ -100,3 +100,15 @@ Password instial access
              ```
              docker exec -it <gitlab_container_name> cat /etc/gitlab/initial_root_password
              ```
+
+## 📜 5. import petclinc into gitlab
+
+Activate fisrt the priviledge 
+
+![Activate fisrt the priviledge](/0-gitlab/3.PNG)
+
+Generate an access token from GitHub and then import it into the current project.
+
+![imported to the current project](/0-gitlab/4.PNG)
+
+
