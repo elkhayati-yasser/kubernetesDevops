@@ -1,0 +1,83 @@
+stages:
+    - test
+    - build
+    - scan
+    - deploy
+
+cache:
+  paths:
+    - .m2/repository/
+
+services:
+    - name: docker:dind
+      alias: docker
+
+variables:
+  CI_REGISTRY: "gitlab.yasserelkhayati.com:5050"
+  CI_REGISTRY_PASSWORD: "$CI_JOB_TOKEN"
+  DOCKER_HOST: "tcp://docker:2375"
+  DOCKER_TLS_CERTDIR: ""
+
+
+Unit_Tests:
+  stage: test
+  tags:
+    - sysbox
+  image: eclipse-temurin:17-jdk-alpine
+  script:
+    - ./mvnw clean test
+
+
+build_job:
+  stage: build
+  tags:
+    - sysbox
+  image: eclipse-temurin:17-jdk-alpine
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}
+    paths:
+      - .m2/repository
+  services:
+    - name: docker:dind
+      alias: docker
+  before_script:
+    - apk add --no-cache docker-cli
+  script:
+    - ./mvnw spring-boot:build-image -DskipTests -Dspring-boot.build-image.imageName=$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+    - echo "$CI_JOB_TOKEN" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
+    - echo "Build completed"
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+
+
+scan image:
+  stage: scan
+  tags:
+    - sysbox
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: [""]
+  before_script:
+    - apk add --no-cache docker-cli
+  script:
+    - echo "$CI_JOB_TOKEN" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
+    - trivy image $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+
+
+
+deploy-app:
+  stage: deploy
+  tags:
+    - sysbox
+  image: 
+    name: bitnami/kubectl:latest
+    entrypoint: [""]
+  script:
+    - kubectl config use-context root/spring-petclinic:swisswcom
+    - |
+      kubectl create secret docker-registry gitlab-registry \
+        --docker-server=$CI_REGISTRY \
+        --docker-username=$CI_REGISTRY_USER \
+        --docker-password=$CI_JOB_TOKEN \
+        --namespace=default --dry-run=client -o yaml | kubectl --insecure-skip-tls-verify=true apply  -f -
+    - kubectl --insecure-skip-tls-verify=true apply -f k8s/
+
