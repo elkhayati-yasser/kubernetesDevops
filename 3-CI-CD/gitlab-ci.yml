@@ -2,6 +2,7 @@ stages:
     - test
     - build
     - scan
+    - secret
     - deploy
 
 cache:
@@ -17,8 +18,10 @@ variables:
   CI_REGISTRY_PASSWORD: "$CI_JOB_TOKEN"
   DOCKER_HOST: "tcp://docker:2375"
   DOCKER_TLS_CERTDIR: ""
-
-
+  DB_PASSWORD: $DB_PASSWORD
+  
+# don't forget ro create it as a masked hidden var withing gitlab
+  
 Unit_Tests:
   stage: test
   tags:
@@ -61,6 +64,31 @@ scan image:
   script:
     - echo "$CI_JOB_TOKEN" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
     - trivy image $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+
+
+k8s-secret:
+  stage: secret
+  tags:
+    - sysbox
+  image: 
+    name: bitnami/kubectl:latest
+    entrypoint: [""]
+  script:
+    - kubectl config use-context root/spring-petclinic:swisswcom
+    - |
+      kubectl create secret generic petclinic-db \
+        --type=servicebinding.io/postgresql \
+        --from-literal=type=postgresql \
+        --from-literal=provider=postgresql \
+        --from-literal=host=petclinic-db \
+        --from-literal=port=5432 \
+        --from-literal=database=petclinic \
+        --from-literal=username=user \
+        --from-literal=password="$DB_PASSWORD" \
+        --namespace=default \
+        --dry-run=client -o yaml | \
+      kubectl apply --insecure-skip-tls-verify=true -f -
+
 
 
 
