@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: petclinic-svc
+  name: petclinic-db-svc
 spec:
   ports:
     - port: 5432
