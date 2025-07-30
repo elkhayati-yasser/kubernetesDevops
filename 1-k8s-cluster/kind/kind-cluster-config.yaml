@@ -1,0 +1,38 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+  extraMounts:
+    - containerPath: /etc/ssl/certs/gitlab.yasserelkhayati.com.crt
+      hostPath: /root/CloudPlatformEngineer/onprem/0-Gitlab/ssl/gitlab.yasserelkhayati.com.crt
+  kubeadmConfigPatches:
+  - |
+    kind: InitConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        node-labels: "ingress-ready=true"
+  extraPortMappings:
+  - containerPort: 30007
+    hostPort: 30007
+    protocol: TCP
+  - containerPort: 30008
+    hostPort: 30008
+    protocol: TCP
+  - containerPort: 80
+    hostPort: 8081
+    protocol: TCP
+  - containerPort: 443
+    hostPort: 8443
+    protocol: TCP
+- role: worker
+  extraMounts:
+    - containerPath: /etc/ssl/certs/gitlab.yasserelkhayati.com.crt
+      hostPath: /root/CloudPlatformEngineer/onprem/0-Gitlab/ssl/gitlab.yasserelkhayati.com.crt
+- role: worker
+  extraMounts:
+    - containerPath: /etc/ssl/certs/gitlab.yasserelkhayati.com.crt
+      hostPath: /root/CloudPlatformEngineer/onprem/0-Gitlab/ssl/gitlab.yasserelkhayati.com.crt
+containerdConfigPatches:
+- |-
+ [plugins."io.containerd.grpc.v1.cri".registry.configs."gitlab.yasserelkhayati.com:5050".tls]
+    ca_file = "/etc/ssl/certs/gitlab.yasserelkhayati.com.crt"
