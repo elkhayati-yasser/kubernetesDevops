@@ -1,0 +1,3 @@
+ci_access:
+  projects:
+    - id: root/spring-petclinic  # Adjust to your project path
