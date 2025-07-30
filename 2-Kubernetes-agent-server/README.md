@@ -11,11 +11,11 @@
 
 # Copy to control plane
 ```
-scp /path/to/ssl/files user@controlplane:/root/ssl/
+scp ./ssl/* root@controlplane:/root/ssl/
 ```
 # Copy to worker nodes 
 ```
-scp /path/to/ssl/files user@node:/root/ssl/
+scp ./ssl/* root@node1:/root/ssl/
 ```
 
 ### Configure containerd Certificates
