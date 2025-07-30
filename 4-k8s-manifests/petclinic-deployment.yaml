@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: petclinic-db
+  labels:
+    app: petclinic-db
+spec:
+  selector:
+    matchLabels:
+      app: petclinic-db
+  template:
+    metadata:
+      labels:
+        app: petclinic-db
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: node1
+      containers:
+        - image: postgres:17.5
+          name: postgresql
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: petclinic-secret
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: petclinic-secret
+                  key: password
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: petclinic-secret
+                  key: database
+          ports:
+            - containerPort: 5432
+              name: postgresql
+          livenessProbe:
+            tcpSocket:
+              port: postgresql
+          readinessProbe:
+            tcpSocket:
+              port: postgresql
+          startupProbe:
+            tcpSocket:
+              port: postgresql
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: postgres-storage
+          persistentVolumeClaim:
+            claimName: petclinic-db-pvc
