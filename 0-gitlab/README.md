@@ -29,7 +29,7 @@ This folder sets up a self-hosted GitLab instance with:
   -out gitlab.yasserelkhayati.com.cert
   ```
 
-![Screenshot of files in ssl folder]/0-gitlab/1.PNG
+![Screenshot of files in ssl folder](/0-gitlab/1.PNG)
 
 ## 📜 2. GitLab Server and Runner
 
@@ -80,7 +80,7 @@ Create a directory for Docker to trust the registry's SSL cert:
 and place the certificates generated before inside the created folder And Ensure the runner container has this cert folder mounted in config.toml:
 
 
-![Screenshot of files in docker folder to authenticate in the CR]/0-gitlab/2.PNG
+![Screenshot of files in docker folder to authenticate in the CR](/0-gitlab/2.PNG)
 
 Authenticate to the container using a GitLab Personal Access Token (PAT) during CI/CD.
 
