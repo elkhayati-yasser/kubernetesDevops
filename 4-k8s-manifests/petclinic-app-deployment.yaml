@@ -25,11 +25,19 @@ spec:
             - name: SPRING_APPLICATION_JSON
               value: |
                 {
-                  "management.endpoint.health.probes.add-additional-paths": true
+                  "management.endpoint.health.probes.add-additional-paths": true,
+                  "logging.level.org.springframework.web": "DEBUG",
+                  "management.endpoint.prometheus.enable" : true,
+                  "management.endpoints.web.exposure.include" : "*",
+                  "management.prometheus.metrics.export.enabled": true
                 }
           ports:
             - name: http
               containerPort: 8080
+          resources:
+            requests:
+              cpu: 50m
+              memory: 600Mi
           livenessProbe:
             httpGet:
               path: /livez
