@@ -1,0 +1,11 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+ name: petclinic-app-service-monitor
+spec:
+ selector:
+   matchLabels:
+     app: petclinic-app-svc
+ endpoints:
+   - port: http
+     path: "/actuator/prometheus"
