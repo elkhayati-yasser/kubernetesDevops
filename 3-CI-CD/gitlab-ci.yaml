@@ -1,0 +1,187 @@
+stages:
+    - test
+    - build
+    - scan
+    - secret
+    - deploy
+    - secreteks
+    - update-manifests
+
+cache:
+  paths:
+    - .m2/repository/
+
+services:
+    - name: docker:dind
+      alias: docker
+
+variables:
+  CI_REGISTRY: "gitlab.yasserelkhayati.com:5050"
+  CI_REGISTRY_PASSWORD: "$CI_JOB_TOKEN"
+  DOCKER_HOST: "tcp://docker:2375"
+  DOCKER_TLS_CERTDIR: ""
+  DB_PASSWORD: $DB_PASSWORD
+  IMAGE_TAG: $CI_COMMIT_SHORT_SHA
+  AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
+  AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
+  AWS_DEFAULT_REGION: "us-east-2"
+  CLUSTER_NAME: "prod-swisscom"
+  
+# don't forget ro create them as a masked hidden var withing gitlab when terraform finishes 
+  
+Unit_Tests:
+  stage: test
+  tags:
+    - sysbox
+  image: eclipse-temurin:17-jdk-alpine
+  script:
+    - ./mvnw clean test
+  allow_failure: true
+
+
+build_job:
+  stage: build
+  tags:
+    - sysbox
+  image: eclipse-temurin:17-jdk-alpine
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}
+    paths:
+      - .m2/repository
+  services:
+    - name: docker:dind
+      alias: docker
+  before_script:
+    - apk add --no-cache docker-cli
+  script:
+    - ./mvnw spring-boot:build-image -DskipTests -Dspring-boot.build-image.imageName=$CI_REGISTRY_IMAGE:$IMAGE_TAG -Dmaven.repo.local=.m2/repository
+    - echo "$CI_JOB_TOKEN" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
+    - echo "Build completed"
+    - docker push $CI_REGISTRY_IMAGE:$IMAGE_TAG
+
+
+scan image:
+  stage: scan
+  tags:
+    - sysbox
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: [""]
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: always
+  before_script:
+    - apk add --no-cache docker-cli
+  script:
+    - echo "$CI_JOB_TOKEN" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
+    - trivy image $CI_REGISTRY_IMAGE:$IMAGE_TAG --format template --output gitlab_trivy_report.json
+  artifacts:
+    when: always
+    reports:
+      dependency_scanning: gitlab_trivy_petclinic_report.json
+
+
+k8s-secret:
+  stage: secret
+  tags:
+    - sysbox
+  image: 
+    name: bitnami/kubectl:latest
+    entrypoint: [""]
+  script:
+    - kubectl config use-context root/spring-petclinic:swisswcom
+    - |
+      kubectl create secret generic petclinic-db \
+        --type=servicebinding.io/postgresql \
+        --from-literal=type=postgresql \
+        --from-literal=provider=postgresql \
+        --from-literal=host=petclinic-db \
+        --from-literal=port=5432 \
+        --from-literal=database=petclinic \
+        --from-literal=username=user \
+        --from-literal=password=$DB_PASSWORD \
+        --namespace=default \
+        --dry-run=client -o yaml | \
+      kubectl apply --insecure-skip-tls-verify=true -f -
+
+
+
+
+deploy-app:
+  stage: deploy
+  tags:
+    - sysbox
+  image: 
+    name: bitnami/kubectl:latest
+    entrypoint: [""]
+  script:
+    - kubectl config use-context root/spring-petclinic:swisswcom
+    - |
+      kubectl create secret docker-registry gitlab-registry \
+        --docker-server=$CI_REGISTRY \
+        --docker-username=$CI_REGISTRY_USER \
+        --docker-password=$CI_JOB_TOKEN \
+        --namespace=default --dry-run=client -o yaml | kubectl --insecure-skip-tls-verify=true apply  -f -
+    - kubectl --insecure-skip-tls-verify=true apply -f k8s/
+
+secret_on_EKS:
+  stage: secreteks
+  tags:
+    - sysbox
+  image: 
+    name: amazon/aws-cli
+    entrypoint: [""]
+  when: manual
+  services:
+    - docker:dind
+  before_script:
+    - amazon-linux-extras install docker
+    - aws --version
+    - docker --version
+    - curl -O https://s3.us-west-2.amazonaws.com/amazon-eks/1.29.0/2024-01-04/bin/linux/amd64/kubectl
+    - chmod +x ./kubectl
+    - mkdir -p $HOME/bin && cp ./kubectl $HOME/bin/kubectl && export PATH=$HOME/bin:$PATH
+    - echo 'export PATH=$HOME/bin:$PATH' >> ~/.bashrc
+    - kubectl version --client
+    - export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+    - export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+    - export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+  script:
+    - aws eks update-kubeconfig --region REGION --name $CLUSTER_NAME
+    - |
+      kubectl create secret generic petclinic-secret \
+        --type=servicebinding.io/postgresql \
+        --from-literal=type=postgresql \
+        --from-literal=provider=postgresql \
+        --from-literal=host=petclinic-db \
+        --from-literal=port=5432 \
+        --from-literal=database=petclinic \
+        --from-literal=username=user \
+        --from-literal=password=$DB_PASSWORD \
+        --namespace=default \
+        --dry-run=client -o yaml | \
+      kubectl apply --insecure-skip-tls-verify=true -f -
+
+update_manifests_manual:
+  stage: update-manifests
+  tags:
+    - sysbox
+  image: alpine/k8s:1.26.6
+  when: manual
+  before_script:
+    - apk add --no-cache git yq
+    - git config --global user.email "gitlab-ci@example.com"
+    - git config --global user.name "GitLab CI"
+    - git config --global http.sslVerify "false"
+  script:
+    - echo "Updating Kubernetes manifests with new image tag $IMAGE_TAG"
+    - yq -i '.spec.template.spec.containers[0].image = "gitlab.yasserelkhayati.com:5050/root/spring-petclinic:'"$IMAGE_TAG"'"' k8s/petclinic-app-deployment.yaml
+    - git remote set-url origin https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git
+    - git checkout -B ${CI_COMMIT_REF_NAME}
+    - git add .
+    - git commit -m "CI Update image tag to $IMAGE_TAG "
+    - git push origin ${CI_COMMIT_REF_NAME}
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+  needs: ["secret_on_EKS"]
