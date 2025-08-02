@@ -86,3 +86,9 @@ The project demonstrates the **end-to-end deployment of the Spring Petclinic app
     - *MetalLB* to provide a LoadBalancer IP in local Kubernetes (kind) clusters.
     - *NGINX Ingress Controller* to route HTTP traffic to internal services
 
+### `9-EKS/`
+    - Amazon EKS (Elastic Kubernetes Service) cluster using Terraform, and configure access via different AWS IAM users.
+
+### `10-ArgoCD/`
+    - use Argo CD to continuously deploy Kubernetes workloads to an Amazon EKS (Elastic Kubernetes Service) cluster using a GitOps workflow.
+
