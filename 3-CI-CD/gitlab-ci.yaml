@@ -124,30 +124,33 @@ deploy-app:
         --namespace=default --dry-run=client -o yaml | kubectl --insecure-skip-tls-verify=true apply  -f -
     - kubectl --insecure-skip-tls-verify=true apply -f k8s/
 
+
 secret_on_EKS:
   stage: secreteks
   tags:
     - sysbox
   image: 
-    name: amazon/aws-cli
+    name: registry.gitlab.com/gitlab-org/cloud-deploy/aws-base:latest
     entrypoint: [""]
-  when: manual
-  services:
-    - docker:dind
   before_script:
-    - amazon-linux-extras install docker
-    - aws --version
-    - docker --version
-    - curl -O https://s3.us-west-2.amazonaws.com/amazon-eks/1.29.0/2024-01-04/bin/linux/amd64/kubectl
+    - apt-get update && apt-get install -y curl jq
+    - curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
     - chmod +x ./kubectl
-    - mkdir -p $HOME/bin && cp ./kubectl $HOME/bin/kubectl && export PATH=$HOME/bin:$PATH
-    - echo 'export PATH=$HOME/bin:$PATH' >> ~/.bashrc
-    - kubectl version --client
-    - export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-    - export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-    - export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+    - mv ./kubectl /usr/local/bin/kubectl
+    - mkdir -p ~/.aws
   script:
-    - aws eks update-kubeconfig --region REGION --name $CLUSTER_NAME
+    - |
+      cat > ~/.aws/credentials <<EOL
+      [manager]
+      aws_access_key_id = $AWS_ACCESS_KEY_ID
+      aws_secret_access_key = $AWS_SECRET_ACCESS_KEY
+      EOL
+    - |
+      echo "[profile eks-admin]" >> ~/.aws/config
+      echo "role_arn = arn:aws:iam::443630454434:role/prod-swisscom-eks-admin" >> ~/.aws/config
+      echo "source_profile = manager" >> ~/.aws/config
+    - cat ~/.aws/config 
+    - aws eks update-kubeconfig --region us-east-2 --name prod-swisscom --profile eks-admin
     - |
       kubectl create secret generic petclinic-secret \
         --type=servicebinding.io/postgresql \
@@ -161,6 +164,7 @@ secret_on_EKS:
         --namespace=default \
         --dry-run=client -o yaml | \
       kubectl apply --insecure-skip-tls-verify=true -f -
+
 
 update_manifests_manual:
   stage: update-manifests
