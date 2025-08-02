@@ -5,6 +5,11 @@ This repository contains my solution for the **Cloud Platform Engineer (Kubernet
 The project demonstrates the **end-to-end deployment of the Spring Petclinic application** on a Kubernetes cluster with **CI/CD**, and several **production-grade enhancements** such as monitoring, autoscaling, and secure networking.
 
 ---
+## Architecture
+
+<img width="1192" height="660" alt="image" src="https://github.com/user-attachments/assets/e12ef9f8-0aeb-447c-ad06-64351ba99731" />
+
+---
 
 ## 📂 Repository Structure
 
