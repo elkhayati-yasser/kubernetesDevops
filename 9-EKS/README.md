@@ -45,10 +45,26 @@ aws configure --profile manager
 <img width="1087" height="103" alt="image" src="https://github.com/user-attachments/assets/d6b23399-b887-49c6-9abd-cdccedfefdef" />
 
 
-To update kubeconfig and switch to the Manager user:
+We cannot access the EKS cluster directly. Instead, we assume the role arn:aws:iam::443630454434:role/prod-swisscom-eks-admin to obtain temporary session credentials.
 
+To update the kubeconfig and switch to the manager user:
+
+we should add this to `~/.aws/config`
+
+```
+[default]
+[profile manager]
+region = us-east-2
+
+[profile eks-admin]
+role_arn = arn:aws:iam::443630454434:role/prod-swisscom-eks-admin
+source_profile = manager
+```
+
+ And Then :
+ 
 ```bash
-aws eks update-kubeconfig --name prod-petclinc-prod --region us-east-2 --profile manager
+aws eks update-kubeconfig --name prod-petclinc-prod --region us-east-2 --profile eks-admin
 ```
 
 This command sets up your `kubeconfig` file to authenticate with the EKS cluster using the Manager profile.
